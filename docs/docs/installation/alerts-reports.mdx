@@ -63,7 +63,7 @@ Note: when you configure an alert or a report, the Slack channel list take chann
 
 ##### You must have in your`docker-compose.yaml`
 
-- a redis message broker
+- a Redis message broker
 - PostgreSQL DB instead of SQLlite
 - one or more `celery worker`
 - a single `celery beat`
@@ -76,7 +76,7 @@ You can find documentation about each field in the default `config.py` in the Gi
 
 You need to replace default values with your custom Redis, Slack and/or SMTP config.
 
-In the `CeleryConfig`, only the `CELERYBEAT_SCHEDULE` is relative to this feature, the rest of the `CeleryConfig` can be changed for your needs.
+In the `CeleryConfig`, only the `CELERYBEAT_SCHEDULE` is relevant to this feature, the rest of the `CeleryConfig` can be changed for your needs.
 
 ```python
 from celery.schedules import crontab

@@ -395,9 +395,12 @@ class BaseReportState:
                     notification.send()
             except NotificationError as ex:
                 # collect notification errors but keep processing them
-                notification_errors.append(str(ex))
-        if notification_errors:
-            raise ReportScheduleNotificationError(";".join(notification_errors))
+                notification_errors.append(ex)
+        if len(notification_errors) == 1:
+            notification_error, = notification_errors
+            raise ReportScheduleNotificationError(str(notification_error)) from notification_error
+        elif notification_errors:
+            raise ReportScheduleNotificationError(";".join(str(ne) for ne in notification_errors))
 
     def send(self) -> None:
         """

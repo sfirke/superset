@@ -88,6 +88,11 @@ export default function Login() {
   const authRegistration: boolean =
     bootstrapData.common.conf.AUTH_USER_REGISTRATION;
 
+  // Extract current URL parameters to preserve redirect information
+  const currentUrlParams = new URLSearchParams(window.location.search);
+  const nextParam = currentUrlParams.get('next');
+  const urlParamsString = currentUrlParams.toString();
+
   // TODO: This is a temporary solution for showing login errors after form submission.
   // Should be replaced with proper SPA-style authentication (JSON API with error responses)
   // when Flask-AppBuilder is updated or we implement a custom login endpoint.
@@ -129,6 +134,15 @@ export default function Login() {
     return undefined;
   };
 
+  // Helper function to construct provider login URL with preserved parameters
+  const getProviderLoginUrl = (providerName: string): string => {
+    const baseUrl = `/login/${providerName}`;
+    if (urlParamsString) {
+      return `${baseUrl}?${urlParamsString}`;
+    }
+    return baseUrl;
+  };
+
   return (
     <Flex
       justify="center"
@@ -146,7 +160,7 @@ export default function Login() {
               {providers.map((provider: OIDProvider) => (
                 <Form.Item<LoginForm>>
                   <Button
-                    href={`/login/${provider.name}`}
+                    href={getProviderLoginUrl(provider.name)}
                     block
                     iconPosition="start"
                     icon={getAuthIconElement(provider.name)}
@@ -164,7 +178,7 @@ export default function Login() {
               {providers.map((provider: OAuthProvider) => (
                 <Form.Item<LoginForm>>
                   <Button
-                    href={`/login/${provider.name}`}
+                    href={getProviderLoginUrl(provider.name)}
                     block
                     iconPosition="start"
                     icon={getAuthIconElement(provider.name)}

@@ -18,11 +18,12 @@
 import logging
 from typing import Optional
 
-from flask import g, redirect
+from flask import g, redirect, request, session
 from flask_appbuilder import expose
 from flask_appbuilder.const import LOGMSG_ERR_SEC_NO_REGISTER_HASH
 from flask_appbuilder.security.decorators import no_cache
 from flask_appbuilder.security.views import AuthView, WerkzeugResponse
+from flask_appbuilder.utils.base import get_safe_redirect
 from flask_babel import lazy_gettext
 
 from superset.views.base import BaseSupersetView
@@ -37,9 +38,35 @@ class SupersetAuthView(BaseSupersetView, AuthView):
     @no_cache
     def login(self, provider: Optional[str] = None) -> WerkzeugResponse:
         if g.user is not None and g.user.is_authenticated:
+            # Check if there's a stored redirect URL from OAuth flow
+            if 'next_url' in session:
+                next_url = session.pop('next_url')
+                return redirect(next_url)
             return redirect(self.appbuilder.get_url_for_index)
 
         return super().render_app_template()
+
+    @expose("/<provider>")
+    @no_cache
+    def provider_login(self, provider: str) -> WerkzeugResponse:
+        """Handle OAuth/OpenID provider login while preserving redirect parameters.
+        
+        This endpoint captures the 'next' parameter from the query string and stores it
+        in the session before redirecting to the actual Flask-AppBuilder OAuth/OpenID
+        login handler. After successful authentication, the parent AuthView will use
+        this stored value for redirection.
+        """
+        # Store the 'next' parameter in session for use after OAuth flow completes
+        next_url = request.args.get('next')
+        if next_url:
+            # Validate the redirect URL for security
+            safe_next_url = get_safe_redirect(next_url)
+            if safe_next_url:
+                session['next_url'] = safe_next_url
+        
+        # Delegate to parent AuthView's OAuth/OpenID login handling
+        # Flask-AppBuilder will handle the actual OAuth flow
+        return super().login(provider)
 
 
 class SupersetRegisterUserView(BaseSupersetView):

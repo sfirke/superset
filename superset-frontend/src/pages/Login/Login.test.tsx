@@ -19,6 +19,14 @@
 import { render, screen } from 'spec/helpers/testing-library';
 import Login from './index';
 
+// Mock window.location
+Object.defineProperty(window, 'location', {
+  value: {
+    search: '',
+  },
+  writable: true,
+});
+
 jest.mock('src/utils/getBootstrapData', () => ({
   __esModule: true,
   default: () => ({
@@ -52,4 +60,97 @@ test('should render form instruction text', () => {
   expect(
     screen.getByText('Enter your login and password below:'),
   ).toBeInTheDocument();
+});
+
+test('should preserve next parameter in OAuth provider URLs', () => {
+  // Mock OAuth authentication type and providers
+  jest.doMock('src/utils/getBootstrapData', () => ({
+    __esModule: true,
+    default: () => ({
+      common: {
+        conf: {
+          AUTH_TYPE: 4, // AuthOauth
+          AUTH_PROVIDERS: [{ name: 'google', icon: 'google' }],
+          AUTH_USER_REGISTRATION: false,
+        },
+      },
+    }),
+  }));
+
+  // Mock URL with next parameter
+  Object.defineProperty(window, 'location', {
+    value: {
+      search: '?next=%2Fdashboard%2F123',
+    },
+    writable: true,
+  });
+
+  // Re-import the component to use the new mock
+  const LoginWithOAuth = require('./index').default;
+  render(<LoginWithOAuth />, { useRedux: true });
+  
+  const oauthButton = screen.getByRole('link', { name: /sign in with google/i });
+  expect(oauthButton).toHaveAttribute('href', '/login/google?next=%2Fdashboard%2F123');
+});
+
+test('should preserve next parameter in OpenID provider URLs', () => {
+  // Mock OpenID authentication type and providers
+  jest.doMock('src/utils/getBootstrapData', () => ({
+    __esModule: true,
+    default: () => ({
+      common: {
+        conf: {
+          AUTH_TYPE: 0, // AuthOID
+          AUTH_PROVIDERS: [{ name: 'azure', url: '/login/azure' }],
+          AUTH_USER_REGISTRATION: false,
+        },
+      },
+    }),
+  }));
+
+  // Mock URL with next parameter
+  Object.defineProperty(window, 'location', {
+    value: {
+      search: '?next=%2Fexplore%2F',
+    },
+    writable: true,
+  });
+
+  // Re-import the component to use the new mock
+  const LoginWithOID = require('./index').default;
+  render(<LoginWithOID />, { useRedux: true });
+  
+  const oidButton = screen.getByRole('link', { name: /sign in with azure/i });
+  expect(oidButton).toHaveAttribute('href', '/login/azure?next=%2Fexplore%2F');
+});
+
+test('should handle SSO URLs without next parameter', () => {
+  // Mock OAuth authentication type and providers
+  jest.doMock('src/utils/getBootstrapData', () => ({
+    __esModule: true,
+    default: () => ({
+      common: {
+        conf: {
+          AUTH_TYPE: 4, // AuthOauth
+          AUTH_PROVIDERS: [{ name: 'github', icon: 'github' }],
+          AUTH_USER_REGISTRATION: false,
+        },
+      },
+    }),
+  }));
+
+  // Mock URL without next parameter
+  Object.defineProperty(window, 'location', {
+    value: {
+      search: '',
+    },
+    writable: true,
+  });
+
+  // Re-import the component to use the new mock
+  const LoginWithoutNext = require('./index').default;
+  render(<LoginWithoutNext />, { useRedux: true });
+  
+  const oauthButton = screen.getByRole('link', { name: /sign in with github/i });
+  expect(oauthButton).toHaveAttribute('href', '/login/github');
 });

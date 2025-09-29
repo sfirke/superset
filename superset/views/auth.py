@@ -44,6 +44,11 @@ class SupersetAuthView(BaseSupersetView, AuthView):
                 return redirect(next_url)
             return redirect(self.appbuilder.get_url_for_index)
 
+        # If a provider is specified, this might be an OAuth callback
+        # Let the parent handle OAuth/OpenID authentication  
+        if provider is not None:
+            return super().login(provider)
+            
         return super().render_app_template()
 
     @expose("/<provider>")

@@ -90,7 +90,6 @@ export default function Login() {
 
   // Extract current URL parameters to preserve redirect information
   const currentUrlParams = new URLSearchParams(window.location.search);
-  const nextParam = currentUrlParams.get('next');
   const urlParamsString = currentUrlParams.toString();
 
   // TODO: This is a temporary solution for showing login errors after form submission.

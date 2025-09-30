@@ -37,6 +37,14 @@ class SupersetAuthView(BaseSupersetView, AuthView):
     @expose("/")
     @no_cache
     def login(self, provider: Optional[str] = None) -> WerkzeugResponse:
+        # Capture the 'next' parameter before processing auth
+        next_url = request.args.get('next')
+        if next_url:
+            # Validate the redirect URL for security
+            safe_next_url = get_safe_redirect(next_url)
+            if safe_next_url:
+                session['next_url'] = safe_next_url
+
         if g.user is not None and g.user.is_authenticated:
             # Check if there's a stored redirect URL from OAuth flow
             if 'next_url' in session:
@@ -44,34 +52,7 @@ class SupersetAuthView(BaseSupersetView, AuthView):
                 return redirect(next_url)
             return redirect(self.appbuilder.get_url_for_index)
 
-        # If a provider is specified, this might be an OAuth callback
-        # Let the parent handle OAuth/OpenID authentication  
-        if provider is not None:
-            return super().login(provider)
-            
         return super().render_app_template()
-
-    @expose("/<provider>")
-    @no_cache
-    def provider_login(self, provider: str) -> WerkzeugResponse:
-        """Handle OAuth/OpenID provider login while preserving redirect parameters.
-        
-        This endpoint captures the 'next' parameter from the query string and stores it
-        in the session before redirecting to the actual Flask-AppBuilder OAuth/OpenID
-        login handler. After successful authentication, the parent AuthView will use
-        this stored value for redirection.
-        """
-        # Store the 'next' parameter in session for use after OAuth flow completes
-        next_url = request.args.get('next')
-        if next_url:
-            # Validate the redirect URL for security
-            safe_next_url = get_safe_redirect(next_url)
-            if safe_next_url:
-                session['next_url'] = safe_next_url
-        
-        # Delegate to parent AuthView's OAuth/OpenID login handling
-        # Flask-AppBuilder will handle the actual OAuth flow
-        return super().login(provider)
 
 
 class SupersetRegisterUserView(BaseSupersetView):

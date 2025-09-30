@@ -2871,6 +2871,9 @@ class SupersetSecurityManager(  # pylint: disable=too-many-public-methods
     # temporal change to remove the roles view from the security menu,
     # after migrating all views to frontend, we will set FAB_ADD_SECURITY_VIEWS = False
     def register_views(self) -> None:
+        from flask import request, session
+        from flask_appbuilder.utils.base import get_safe_redirect
+        
         from superset.views.auth import SupersetAuthView, SupersetRegisterUserView
 
         self.auth_view = self.appbuilder.add_view_no_menu(SupersetAuthView)
@@ -2879,6 +2882,20 @@ class SupersetSecurityManager(  # pylint: disable=too-many-public-methods
         )
 
         super().register_views()
+        
+        # Add a before_request handler to capture 'next' parameter for OAuth login flows
+        @self.appbuilder.app.before_request
+        def capture_next_url_for_oauth() -> None:
+            """Capture the 'next' URL parameter for OAuth/OpenID login requests."""
+            # Only process login-related requests
+            if request.path.startswith('/login/') and not request.path == '/login/':
+                # This is an OAuth provider request (e.g., /login/google)
+                next_url = request.args.get('next')
+                if next_url:
+                    # Validate the redirect URL for security
+                    safe_next_url = get_safe_redirect(next_url)
+                    if safe_next_url:
+                        session['next_url'] = safe_next_url
 
         for view in list(self.appbuilder.baseviews):
             if isinstance(view, self.rolemodelview.__class__) and getattr(

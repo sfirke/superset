@@ -18,11 +18,12 @@
 import logging
 from typing import Optional
 
-from flask import g, redirect
+from flask import g, redirect, request, session
 from flask_appbuilder import expose
 from flask_appbuilder.const import LOGMSG_ERR_SEC_NO_REGISTER_HASH
 from flask_appbuilder.security.decorators import no_cache
 from flask_appbuilder.security.views import AuthView, WerkzeugResponse
+from flask_appbuilder.utils.base import get_safe_redirect
 from flask_babel import lazy_gettext
 
 from superset.views.base import BaseSupersetView
@@ -36,7 +37,19 @@ class SupersetAuthView(BaseSupersetView, AuthView):
     @expose("/")
     @no_cache
     def login(self, provider: Optional[str] = None) -> WerkzeugResponse:
+        # Capture the 'next' parameter before processing auth
+        next_url = request.args.get('next')
+        if next_url:
+            # Validate the redirect URL for security
+            safe_next_url = get_safe_redirect(next_url)
+            if safe_next_url:
+                session['next_url'] = safe_next_url
+
         if g.user is not None and g.user.is_authenticated:
+            # Check if there's a stored redirect URL from OAuth flow
+            if 'next_url' in session:
+                next_url = session.pop('next_url')
+                return redirect(next_url)
             return redirect(self.appbuilder.get_url_for_index)
 
         return super().render_app_template()

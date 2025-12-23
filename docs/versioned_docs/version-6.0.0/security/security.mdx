@@ -46,11 +46,57 @@ to all databases by default, both **Alpha** and **Gamma** users need to be given
 
 ### Public
 
-To allow logged-out users to access some Superset features, you can use the `PUBLIC_ROLE_LIKE` config setting and assign it to another role whose permissions you want passed to this role.
+To allow logged-out users to access some Superset features, you can configure the **Public** role with specific permissions. This gives you fine-grained control over what anonymous users can access.
+
+#### Configuring the Public Role for Dashboard Access
+
+To enable public dashboard access:
+
+1. Enable the `DASHBOARD_RBAC` feature flag in your `superset_config.py`:
+   ```python
+   FEATURE_FLAGS = {
+       "DASHBOARD_RBAC": True,
+   }
+   ```
+
+2. In the Superset UI, navigate to **Settings** > **List Roles** and edit the **Public** role.
+
+3. Add the following permissions to the **Public** role:
+   * `can read on DashboardFilterStateRestApi`
+   * `can read on Dataset`
+   * `can read on Dashboard`
+   * `can read on CssTemplate`
+   * `can read on SavedQuery`
+   * `can read on Database`
+   * `can read on Chart`
+   * `can write on DashboardFilterStateRestApi`
+   * `can get on OpenApi`
+   * `can query on Api`
+   * `can query form data on Api`
+   * `can explore json on Superset`
+   * `can sql json on Superset`
+   * `can dashboard on Superset`
+   * `can csv on Superset`
+   * `can validate sql json on Superset`
+   * `can slice json on Superset`
+   * `can annotation json on Superset`
+   * `all datasource access on all_datasource_access`
+   * `can csrf token on Superset`
+   * `can favstar on Superset`
+   * `can time range on Api`
+
+4. Assign the **Public** role to specific dashboards as described in the [dashboard documentation](/docs/using-superset/creating-your-first-dashboard/#manage-access-to-dashboards).
+
+5. Grant access to specific datasets: In addition to dashboard-level permissions, you must also grant the **Public** role access to the datasets used by your public dashboards. Navigate to **Settings** > **List Roles**, edit the **Public** role, and add the relevant dataset permissions in the **Permissions** dropdown.
+
+With this configuration, anonymous users can view dashboards that have been explicitly assigned the **Public** role.
+
+#### Using PUBLIC_ROLE_LIKE (Simpler Alternative)
+
+As a simpler alternative, you can use the `PUBLIC_ROLE_LIKE` config setting to copy permissions from another role, though this offers less control and may grant more permissions than necessary.
 
 For example, by setting `PUBLIC_ROLE_LIKE = "Gamma"` in your `superset_config.py` file, you grant
-public role the same set of permissions as for the **Gamma** role. This is useful if one
-wants to enable anonymous users to view dashboards. Explicit grant on specific datasets is
+the public role the same set of permissions as the **Gamma** role. Explicit grant on specific datasets is
 still required, meaning that you need to edit the **Public** role and add the public data sources to the role manually.
 
 ### Managing Data Source Access for Gamma Roles

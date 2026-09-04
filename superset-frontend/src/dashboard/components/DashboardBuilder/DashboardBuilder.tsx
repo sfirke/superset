@@ -87,6 +87,7 @@ import {
 } from 'src/dashboard/constants';
 import { selectCanRestoreDashboard } from 'src/features/versionHistory/canRestoreDashboard';
 import { selectIsDashboardVersionPreviewActive } from 'src/features/versionHistory/reducer';
+import { StickyTabsOffsetContext } from 'src/dashboard/components/gridComponents/TabsRenderer';
 import { getRootLevelTabsComponent, shouldFocusTabs } from './utils';
 import DashboardContainer from './DashboardContainer';
 import { useNativeFilters } from './state';
@@ -461,8 +462,9 @@ const DashboardBuilder = () => {
   // always get the desktop layout -- matching the pre-existing behavior the
   // docs already promise for embedded dashboards.
   const standaloneMode = getUrlParam(URL_PARAMS.standalone);
+  const isMobileViewport = useIsMobile();
   const isNotMobile =
-    !useIsMobile() || standaloneMode !== DashboardStandaloneMode.None;
+    !isMobileViewport || standaloneMode !== DashboardStandaloneMode.None;
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   // Reset the drawer's open state when leaving mobile mode so it doesn't
@@ -745,6 +747,13 @@ const DashboardBuilder = () => {
     ? theme.sizeUnit * 4
     : theme.sizeUnit * 8;
 
+  // Tab bars nested in the grid pin just below the sticky header while the
+  // page scrolls. Not while editing (drop targets rely on document flow) and
+  // not in the mobile viewport, where the header scrolls away and the mobile
+  // styling pins tab bars on its own.
+  const stickyTabsOffset =
+    editMode || isMobileViewport ? undefined : barTopOffset;
+
   const renderChild = useCallback(
     (adjustedWidth: number) => {
       const filterBarWidth = dashboardFiltersOpen
@@ -947,7 +956,9 @@ const DashboardBuilder = () => {
                   />
                 </div>
               ) : (
-                <DashboardContainer topLevelTabs={topLevelTabs} />
+                <StickyTabsOffsetContext.Provider value={stickyTabsOffset}>
+                  <DashboardContainer topLevelTabs={topLevelTabs} />
+                </StickyTabsOffsetContext.Provider>
               )
             ) : (
               <Loading />

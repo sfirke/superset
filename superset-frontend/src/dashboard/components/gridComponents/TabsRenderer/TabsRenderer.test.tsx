@@ -16,8 +16,9 @@
  * specific language governing permissions and limitations
  * under the License.
  */
-import { fireEvent, render, screen } from 'spec/helpers/testing-library';
+import { fireEvent, render, screen, sleep } from 'spec/helpers/testing-library';
 import TabsRenderer, { TabItem, TabsRendererProps } from './TabsRenderer';
+import { StickyTabsOffsetContext } from './StickyTabsOffsetContext';
 
 const mockTabItems: TabItem[] = [
   {
@@ -240,7 +241,7 @@ describe('TabsRenderer', () => {
     expect(screen.queryByText('Tab 2 Content')).not.toBeInTheDocument(); // Not active
   });
 
-  test('drags from the tab title and shows the drag indicator only then', () => {
+  test('drags from the tab title and shows the drag indicator only then', async () => {
     render(<TabsRenderer {...draggableTabProps} />);
     const container = screen.getByTestId('dashboard-component-tabs');
     const title = container.querySelector('textarea') as HTMLTextAreaElement;
@@ -263,5 +264,123 @@ describe('TabsRenderer', () => {
     expect(container).toHaveStyleRule('cursor', 'move', {
       target: '.dragdroppable-tab *',
     });
+
+    // Release the pointer so the drag does not outlive this test. dnd-kit
+    // keeps swallowing clicks on the shared document for 50ms after a drag
+    // ends, which would eat the tab click of whichever test runs next.
+    fireEvent.pointerUp(document, { button: 0, isPrimary: true, clientX: 50 });
+    await sleep(60);
+  });
+
+  // jsdom's cascade ignores specificity, so assert on the emotion rule rather
+  // than the computed style, which antd's own `position: relative` would win
+  const TAB_BAR = { target: /> ?\.ant-tabs ?> ?\.ant-tabs-nav$/ };
+
+  test('pins the tab bar below the offset supplied by the dashboard', () => {
+    render(
+      <StickyTabsOffsetContext.Provider value={64}>
+        <TabsRenderer {...mockProps} />
+      </StickyTabsOffsetContext.Provider>,
+    );
+    const container = screen.getByTestId('dashboard-component-tabs');
+
+    expect(container).toHaveStyleRule('position', 'sticky', TAB_BAR);
+    expect(container).toHaveStyleRule('top', '64px', TAB_BAR);
+  });
+
+  test('leaves the tab bar in document flow without a dashboard offset', () => {
+    render(<TabsRenderer {...mockProps} />);
+    const container = screen.getByTestId('dashboard-component-tabs');
+
+    expect(container).not.toHaveStyleRule('position', 'sticky', TAB_BAR);
+  });
+
+  test('leaves the tab bar in document flow in edit mode', () => {
+    render(
+      <StickyTabsOffsetContext.Provider value={64}>
+        <TabsRenderer {...mockProps} editMode />
+      </StickyTabsOffsetContext.Provider>,
+    );
+    const container = screen.getByTestId('dashboard-component-tabs');
+
+    expect(container).not.toHaveStyleRule('position', 'sticky', TAB_BAR);
+  });
+
+  test('stacks nested tab bars beneath its own tab bar', () => {
+    // jsdom lays nothing out, so give the tab bar a height to add up
+    const heightSpy = jest
+      .spyOn(HTMLElement.prototype, 'offsetHeight', 'get')
+      .mockReturnValue(40);
+    const nestedTabItems: TabItem[] = [
+      {
+        ...mockTabItems[0],
+        children: (
+          <StickyTabsOffsetContext.Consumer>
+            {offset => <div data-test="nested-offset">{offset}</div>}
+          </StickyTabsOffsetContext.Consumer>
+        ),
+      },
+      mockTabItems[1],
+    ];
+
+    try {
+      render(
+        <StickyTabsOffsetContext.Provider value={64}>
+          <TabsRenderer {...mockProps} tabItems={nestedTabItems} />
+        </StickyTabsOffsetContext.Provider>,
+      );
+
+      expect(screen.getByTestId('nested-offset')).toHaveTextContent('104');
+    } finally {
+      heightSpy.mockRestore();
+    }
+  });
+
+  // Switching tabs while the bar is pinned: the page scrolls so the tab set
+  // starts where its bar is pinned, mirroring the top-level tabs' jump to top
+  function renderPinnedTabSet(containerTop: number, offset?: number) {
+    const scrollTo = jest.spyOn(window, 'scrollTo').mockImplementation();
+    const rectSpy = jest
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockReturnValue({ top: containerTop } as DOMRect);
+    Object.defineProperty(window, 'scrollY', {
+      value: 500,
+      configurable: true,
+    });
+    render(
+      offset === undefined ? (
+        <TabsRenderer {...mockProps} />
+      ) : (
+        <StickyTabsOffsetContext.Provider value={offset}>
+          <TabsRenderer {...mockProps} />
+        </StickyTabsOffsetContext.Provider>
+      ),
+    );
+    fireEvent.click(screen.getByText('Tab 2').closest('[role="tab"]')!);
+    rectSpy.mockRestore();
+    return scrollTo;
+  }
+
+  test('scrolls a pinned tab set back to its top when switching tabs', () => {
+    // the tab set's top is 200px above the viewport, so the bar is pinned
+    const scrollTo = renderPinnedTabSet(-200, 64);
+
+    expect(scrollTo).toHaveBeenCalledWith(0, 500 - 200 - 64);
+    scrollTo.mockRestore();
+  });
+
+  test('leaves the page alone when the tab bar is not pinned', () => {
+    // the tab set starts below where its bar would pin, so it is in flow
+    const scrollTo = renderPinnedTabSet(300, 64);
+
+    expect(scrollTo).not.toHaveBeenCalled();
+    scrollTo.mockRestore();
+  });
+
+  test('leaves the page alone without a dashboard offset', () => {
+    const scrollTo = renderPinnedTabSet(-200);
+
+    expect(scrollTo).not.toHaveBeenCalled();
+    scrollTo.mockRestore();
   });
 });

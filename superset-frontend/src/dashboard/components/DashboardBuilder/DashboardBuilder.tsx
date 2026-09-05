@@ -748,11 +748,15 @@ const DashboardBuilder = () => {
     : theme.sizeUnit * 8;
 
   // Tab bars nested in the grid pin just below the sticky header while the
-  // page scrolls. Not while editing (drop targets rely on document flow) and
-  // not in the mobile viewport, where the header scrolls away and the mobile
-  // styling pins tab bars on its own.
+  // page scrolls. Not in the mobile viewport, where the header scrolls away
+  // and the mobile styling pins tab bars on its own; not in report mode,
+  // whose tiled screenshots scroll the page and would capture a pinned bar
+  // in every tile; and not while a chart is maximized, which sits inside its
+  // own stacking context and must not be covered by a pinned bar.
+  // (TabsRenderer itself opts out while editing, since drop targets rely on
+  // document flow.)
   const stickyTabsOffset =
-    editMode || isMobileViewport ? undefined : barTopOffset;
+    isMobileViewport || isReport || fullSizeChartId ? undefined : barTopOffset;
 
   const renderChild = useCallback(
     (adjustedWidth: number) => {

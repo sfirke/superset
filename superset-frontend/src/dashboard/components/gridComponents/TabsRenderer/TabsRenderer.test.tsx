@@ -343,21 +343,15 @@ describe('TabsRenderer', () => {
     const rectSpy = jest
       .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
       .mockReturnValue({ top: containerTop } as DOMRect);
-    Object.defineProperty(window, 'scrollY', {
-      value: 500,
-      configurable: true,
-    });
+    const scrollYStub = jest.replaceProperty(window, 'scrollY', 500);
     render(
-      offset === undefined ? (
+      <StickyTabsOffsetContext.Provider value={offset}>
         <TabsRenderer {...mockProps} />
-      ) : (
-        <StickyTabsOffsetContext.Provider value={offset}>
-          <TabsRenderer {...mockProps} />
-        </StickyTabsOffsetContext.Provider>
-      ),
+      </StickyTabsOffsetContext.Provider>,
     );
     fireEvent.click(screen.getByText('Tab 2').closest('[role="tab"]')!);
     rectSpy.mockRestore();
+    scrollYStub.restore();
     return scrollTo;
   }
 
@@ -365,7 +359,7 @@ describe('TabsRenderer', () => {
     // the tab set's top is 200px above the viewport, so the bar is pinned
     const scrollTo = renderPinnedTabSet(-200, 64);
 
-    expect(scrollTo).toHaveBeenCalledWith(0, 500 - 200 - 64);
+    expect(scrollTo).toHaveBeenCalledWith(window.scrollX, 500 - 200 - 64);
     scrollTo.mockRestore();
   });
 

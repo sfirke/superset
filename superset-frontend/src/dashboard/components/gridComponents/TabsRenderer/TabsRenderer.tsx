@@ -263,26 +263,26 @@ const TabsRenderer = memo<TabsRendererProps>(
     const containerRef = useRef<HTMLDivElement>(null);
     const [tabBarHeight, setTabBarHeight] = useState(0);
 
+    // Keyed on whether the bar is pinned rather than on the offset itself:
+    // the header re-measuring on every resize would otherwise tear down and
+    // recreate the observer in every tab set on the page.
+    const isPinned = stickyTop !== undefined;
     useEffect(() => {
-      if (stickyTop === undefined) {
-        return undefined;
-      }
-      // antd renders the tab bar before the tab panes, so the first match is
-      // this component's own bar rather than one belonging to nested tabs.
-      const tabBar =
-        containerRef.current?.querySelector<HTMLElement>('.ant-tabs-nav');
+      // Direct-child selector, so nested tab sets' bars are never matched.
+      const tabBar = isPinned
+        ? containerRef.current?.querySelector<HTMLElement>(
+            ':scope > .ant-tabs > .ant-tabs-nav',
+          )
+        : null;
       if (!tabBar) {
         return undefined;
       }
       const measure = () => setTabBarHeight(tabBar.offsetHeight);
       measure();
-      if (typeof ResizeObserver === 'undefined') {
-        return undefined;
-      }
       const observer = new ResizeObserver(measure);
       observer.observe(tabBar);
       return () => observer.disconnect();
-    }, [stickyTop]);
+    }, [isPinned]);
 
     // Tabs nested inside this one stack their bar beneath ours.
     const childStickyOffset =
@@ -292,15 +292,15 @@ const TabsRenderer = memo<TabsRendererProps>(
     // every switch (DashboardBuilder.handleChangeTab). With this bar pinned,
     // a switch would otherwise land the reader partway down the new tab's
     // content; bring the tab set back to where its bar is pinned instead.
-    const scrollPinnedTabSetToTop = useCallback(() => {
+    const scrollPinnedTabSetToTop = () => {
       if (stickyTop === undefined || !containerRef.current) {
         return;
       }
       const { top } = containerRef.current.getBoundingClientRect();
       if (top < stickyTop) {
-        window.scrollTo(0, window.scrollY + top - stickyTop);
+        window.scrollTo(window.scrollX, window.scrollY + top - stickyTop);
       }
-    }, [stickyTop]);
+    };
 
     // Use ref to always have access to the current tabIds in callbacks
     const tabIdsRef = useRef(tabIds);

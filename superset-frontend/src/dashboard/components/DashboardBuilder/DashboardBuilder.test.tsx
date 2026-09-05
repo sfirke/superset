@@ -227,11 +227,29 @@ describe('DashboardBuilder', () => {
     }
   });
 
-  test('leaves tab bars in the grid unpinned while editing', async () => {
+  test('leaves tab bars in the grid unpinned in report mode (?standalone=3)', async () => {
+    // Report screenshots of large dashboards are captured tile by tile while
+    // scrolling the page; a pinned bar would repeat in every tile.
+    const originalHref = window.location.href;
+    window.history.replaceState({}, '', '/?standalone=3');
+    const rectSpy = mockHeaderHeight(120);
+    try {
+      const { findByTestId } = setup();
+      expect(await findByTestId('mock-dashboard-grid')).toHaveAttribute(
+        'data-sticky-tabs-offset',
+        'none',
+      );
+    } finally {
+      rectSpy.mockRestore();
+      window.history.replaceState({}, '', originalHref);
+    }
+  });
+
+  test('leaves tab bars in the grid unpinned while a chart is maximized', async () => {
     const rectSpy = mockHeaderHeight(120);
     try {
       const { findByTestId } = setup({
-        dashboardState: { ...mockState.dashboardState, editMode: true },
+        dashboardState: { ...mockState.dashboardState, fullSizeChartId: 123 },
       });
       expect(await findByTestId('mock-dashboard-grid')).toHaveAttribute(
         'data-sticky-tabs-offset',
